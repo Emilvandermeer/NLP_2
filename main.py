@@ -16,10 +16,27 @@ from sklearn.metrics import (
 
 import matplotlib.pyplot as plt
 import pandas as pd
+import torch
+import torch.nn as nn
 
-
+from transformers import AutoTokenizer
+tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased") #only using model for the tokenizer logic
 SEED = 69
 LABELS = {0: "World", 1: "Sports", 2: "Business", 3: "Sci/Tech"}
+BATCH_SIZE = 64
+MAX_LENGTH = 128
+
+def tokenize_data(texts):
+    """
+    Converts raw text into a batch of padded/truncated integer sequences.
+    """
+    return tokenizer(
+        texts.tolist(),
+        padding=True,
+        truncation=True,
+        max_length=MAX_LENGTH,
+        return_tensors="pt"
+    )
 
 
 def calculate_metrics(real: pd.DataFrame, pred: list,  model: str) -> None:
@@ -244,16 +261,50 @@ def main() -> None:
         stratify=train_full["label"]
     )
 
-    print("Split:")
-    print(f"\nTrain size: {len(train)} rows")
-    print(f"Dev size:   {len(dev)} rows")
-    print(f"Test size:  {len(test)} rows")
+    print(f"Split sizes: Train({len(train)}), Dev({len(dev)}), Test({len(test)})")
 
-    lr = LogisticRegression(random_state=SEED, solver="saga")
-    svm = LinearSVC(loss="squared_hinge", random_state=SEED)
+    # 4. Tokenization (Replacing TF-IDF/TorchText)
+    # X_train, X_dev, and X_test are now dictionaries containing 'input_ids' and 'attention_mask'
+    print("Tokenizing datasets...")
+    X_train = tokenize_data(train["text"])
+    X_dev = tokenize_data(dev["text"])
+    X_test = tokenize_data(test["text"])
 
-    run_model(lr, train, dev, test, "Logistic Regression")
-    run_model(svm, train, dev, test, "SVM")
+    # Y labels
+    y_train = torch.tensor(train["label"].values)
+    y_dev = torch.tensor(dev["label"].values)
+    y_test = torch.tensor(test["label"].values)
+
+    # Note: For Deep Learning, we usually wrap these in a TensorDataset + DataLoader 
+    # so we can train in batches.
+    print(f"Tokenization complete. Sequence shape: {X_train['input_ids'].shape}")
+
+    print("\n--- Tokenization Sanity Check ---")
+    sample_idx = 0
+    print(f"Original Text: {train['text'].iloc[sample_idx][:100]}...")
+    
+    # Show how the tokenizer 'sees' it
+    ids = X_train['input_ids'][sample_idx]
+    tokens = tokenizer.convert_ids_to_tokens(ids[:20]) # First 20 tokens
+    
+    print(f"Tokens: {tokens}")
+    print(f"Sequence Length: {len(ids)}")
+    print("---------------------------------\n")
+
+
+    #! MODELS HERE 
+
+
+    #print("Split:")
+    #print(f"\nTrain size: {len(train)} rows")
+    #print(f"Dev size:   {len(dev)} rows")
+    #print(f"Test size:  {len(test)} rows")
+
+    #lr = LogisticRegression(random_state=SEED, solver="saga")
+    #svm = LinearSVC(loss="squared_hinge", random_state=SEED)
+
+    #run_model(lr, train, dev, test, "Logistic Regression")
+    #run_model(svm, train, dev, test, "SVM")
 
 
 if __name__ == "__main__":
