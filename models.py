@@ -53,8 +53,46 @@ class LSTMModel(nn.Module):
         # Pass the hidden state through the linear layer
         return self.fc(hidden)
 
+class CNNModel(nn.Module):
+    def __init__(
+        self,
+        vocab_size: int,
+        embed_dim: int = 64,
+        num_filters: int = 100,
+        kernel_sizes: tuple = (3, 4, 5),
+        dropout: float = 0.5,
+        pad_idx: int = 0,
+        num_classes: int = 2,
+    ) -> None:
+        super().__init__()
+        self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=pad_idx)
+
+        self.convs = nn.ModuleList(
+            [nn.Conv1d(in_channels=embed_dim, out_channels=num_filters, kernel_size=k)
+             for k in kernel_sizes]
+        )
+        self.dropout = nn.Dropout(dropout)
+
+        self.fc = nn.Linear(num_filters * len(kernel_sizes), num_classes)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        
+        emb = self.embedding(x) 
+
+        emb_t = emb.transpose(1, 2)
+        pooled = []
+        for conv_block in self.convs:
+            z = conv_block(emb_t) 
+            # 3. Global Max Pooling
+            p = torch.max(z, dim=2).values 
+            pooled.append(p)
+
+        rep = torch.cat(pooled, dim=1)  
+        rep = self.dropout(rep)
+        return self.fc(rep)  
+
 def train_model(
-        model: LSTMModel,
+        model: LSTMModel | CNNModel,
         train_loader: DataLoader,
         dev_loader: DataLoader,
         epochs: int = 15,
@@ -143,7 +181,7 @@ def train_model(
         
     return model, history
 
-def get_predictions(model: LSTMModel, data_loader: DataLoader) -> list:
+def get_predictions(model: LSTMModel | CNNModel, data_loader: DataLoader) -> list:
     """Returns predictions so they can be passed in the calculate metrics function"""
     # Try to test on GPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

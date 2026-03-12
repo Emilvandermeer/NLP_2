@@ -15,7 +15,7 @@ from utils import (
     calculate_metrics,
     plot_learning_curves,
 )
-from models import LSTMModel, train_model, get_predictions
+from models import LSTMModel, CNNModel, train_model, get_predictions
 
 def set_seed(seed: int) -> None:
     torch.manual_seed(seed)
@@ -89,10 +89,22 @@ def main() -> None:
         bidirectional=False,
     )
 
+    cnn = CNNModel(
+        vocab_size=tokenizer.vocab_size, 
+        embed_dim=100, 
+        num_classes=4
+    )
+    
+    
     trained_lstm, hist = train_model(lstm, train_loader, dev_loader)
     plot_learning_curves(hist, "LSTM")
     test_predictions = get_predictions(trained_lstm, test_loader)
     calculate_metrics(test, test_predictions, "LSTM")
+    
+    trained_cnn, cnn_hist = train_model(cnn, train_loader, dev_loader)
+    plot_learning_curves(cnn_hist, "CNN")
+    test_predictions_cnn = get_predictions(trained_cnn, test_loader)
+    calculate_metrics(test, test_predictions_cnn, "CNN")
 
 
 if __name__ == "__main__":
