@@ -4,11 +4,11 @@
 Into your bash command line, copy and paste the following command:
 
 ~~~
-git clone https://github.com/V1b1ngC0w/NLP.git
+git clone https://github.com/Emilvandermeer/NLP_2.git
 ~~~
 Then you must navigate to the newly clone NLP directory with the command:
 ~~~
-cd NLP
+cd NLP_2
 ~~~
 
 Then to sync all of the library dependencies, copy and paste the following command:
