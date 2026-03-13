@@ -79,33 +79,47 @@ def main() -> None:
     dev_loader = DataLoader(dev_dataset, batch_size=BATCH_SIZE, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
-    lstm = LSTMModel(
-        vocab_size=tokenizer.vocab_size,
-        embedding_dim=64,
-        hidden_dim=64,
-        output_dim=4,
-        num_layers=2,
-        dropout=0.3,
-        bidirectional=False,
-    )
+    lstm_models = []
+    cnn_models = []
 
-    cnn = CNNModel(
-        vocab_size=tokenizer.vocab_size, 
-        embed_dim=100, 
-        num_classes=4
-    )
-    
-    
-    trained_lstm, hist = train_model(lstm, train_loader, dev_loader)
-    plot_learning_curves(hist, "LSTM")
-    test_predictions = get_predictions(trained_lstm, test_loader)
+    #Ablation loop for LSTM and CNN models
+    for dropout in [0.0, 0.3]:
+        
+        lstm = LSTMModel(
+            vocab_size=tokenizer.vocab_size,
+            embedding_dim=64,
+            hidden_dim=64,
+            output_dim=4,
+            num_layers=2,
+            dropout=dropout,
+            bidirectional=False,
+        )
+
+        
+        cnn = CNNModel(
+            vocab_size=tokenizer.vocab_size, 
+            embed_dim=100,
+            dropout=dropout,
+            num_classes=4
+        )
+        
+        print(f"\nTraining LSTM with dropout={dropout}")
+        trained_lstm, hist = train_model(lstm, train_loader, dev_loader)
+        plot_learning_curves(hist, f"LSTM (dropout={dropout})")
+        lstm_models.append((trained_lstm, hist))
+        
+        print(f"\nTraining CNN with dropout={dropout}")
+        trained_cnn, cnn_hist = train_model(cnn, train_loader, dev_loader)
+        plot_learning_curves(cnn_hist, f"CNN (dropout={dropout})")
+        cnn_models.append((trained_cnn, cnn_hist))
+
+    best_lstm, _ = min(lstm_models, key=lambda x: min(x[1]['dev_loss']))    
+    test_predictions = get_predictions(best_lstm, test_loader)
     calculate_metrics(test, test_predictions, "LSTM")
-    
-    trained_cnn, cnn_hist = train_model(cnn, train_loader, dev_loader)
-    plot_learning_curves(cnn_hist, "CNN")
-    test_predictions_cnn = get_predictions(trained_cnn, test_loader)
-    calculate_metrics(test, test_predictions_cnn, "CNN")
 
+    best_cnn, _ = min(cnn_models, key=lambda x: min(x[1]['dev_loss']))
+    test_predictions_cnn = get_predictions(best_cnn, test_loader)
+    calculate_metrics(test, test_predictions_cnn, "CNN")
 
 if __name__ == "__main__":
     main()
